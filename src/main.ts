@@ -1,9 +1,14 @@
-/// <reference types="@angular/localize" />
+import { importProvidersFrom } from '@angular/core';
+import { bootstrapApplication, BrowserModule } from '@angular/platform-browser';
+import { AppComponent } from './app/app.component';
+import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { MockBackendInterceptor } from './app/shared/mock-backend/mock-backend.interceptor';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
-import {platformBrowserDynamic} from "@angular/platform-browser-dynamic";
-import {AppModule} from "./app/app.module";
-
-
-platformBrowserDynamic()
-  .bootstrapModule(AppModule)
-  .catch((err: any) => console.error(err));
+void bootstrapApplication(AppComponent, {
+    providers: [
+        importProvidersFrom(BrowserModule, NgbModule),
+        provideHttpClient(withInterceptorsFromDi()),
+        { provide: HTTP_INTERCEPTORS, useClass: MockBackendInterceptor, multi: true }
+    ]
+});
