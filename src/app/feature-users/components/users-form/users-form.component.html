@@ -1,0 +1,37 @@
+@let invalidFormsVar = invalidForms();
+
+@if (showCancelButton()) {
+    <button type="button" class="btn btn-danger" (click)="onCancel()">Cancel</button>
+} @else {
+    <button [disabled]="invalidFormsVar > 0" type="button" class="btn btn-primary" (click)="onSubmit()">
+        Submit all forms
+    </button>
+}
+
+@if (invalidFormsVar > 0) {
+    <span class="ms-2 text-danger">Invalid forms: {{ invalidFormsVar }}</span>
+}
+
+<div class="row mt-4">
+    @for (userForm of usersForm.controls; track userForm; let i = $index) {
+        <div class="col-3 position-relative">
+            <app-user-card [form]="userForm"></app-user-card>
+
+            <button class="btn btn-md position-absolute top-0 end-0 me-3" (click)="onRemoveUser(i)">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    }
+
+    @if (usersForm.controls.length < 10) {
+        <div class="col-3">
+            <div class="card justify-content-center d-flex h-100" style="border: dashed">
+                <button class="btn btn-lg" (click)="onAddUser()">
+                    <i class="bi bi-plus-circle-dotted fs-1"></i>
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<pre class="mt-3">{{ usersForm.value | json }}</pre>

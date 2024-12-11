@@ -1,0 +1,24 @@
+<div class="card card-body" [formGroup]="form()">
+    <div class="mb-2">
+        <label for="country" class="form-label required">Country</label>
+        <input class="form-control" formControlName="country" id="country" list="datalistOptions" type="text" />
+
+        <datalist id="datalistOptions">
+            @for (country of countries(); track country) {
+                <option [value]="country">
+                    {{ country }}
+                </option>
+            }
+        </datalist>
+    </div>
+
+    <div class="mb-2">
+        <label for="username" class="form-label required">Username</label>
+        <input class="form-control" formControlName="username" id="username" type="text" />
+    </div>
+
+    <div class="mb-2">
+        <label for="birthday" class="form-label required">Birthday</label>
+        <input class="form-control" formControlName="birthday" id="birthday" type="date" />
+    </div>
+</div>
