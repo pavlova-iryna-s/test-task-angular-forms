@@ -1,30 +1,33 @@
 @let invalidFormsVar = invalidForms();
+@let hasErrorsVar = invalidFormsVar > 0;
 
 @if (showCancelButton()) {
     <button type="button" class="btn btn-danger" (click)="onCancel()">Cancel</button>
 } @else {
-    <button [disabled]="invalidFormsVar > 0" type="button" class="btn btn-primary" (click)="onSubmit()">
+    <button [disabled]="hasErrorsVar" type="button" class="btn btn-primary" (click)="onSubmit()">
         Submit all forms
     </button>
 }
 
-@if (invalidFormsVar > 0) {
+@if (hasErrorsVar) {
     <span class="ms-2 text-danger">Invalid forms: {{ invalidFormsVar }}</span>
 }
 
 <div class="row mt-4">
-    @for (userForm of usersForm.controls; track userForm; let i = $index) {
-        <div class="col-3 position-relative">
+    @for (userForm of usersForm.controls; track userForm; let i = $index; let count = $count) {
+        <div class="col col-sm-6 col-md-5 col-lg-4 position-relative">
             <app-user-card [form]="userForm"></app-user-card>
 
-            <button class="btn btn-md position-absolute top-0 end-0 me-3" (click)="onRemoveUser(i)">
-                <i class="bi bi-x-lg"></i>
-            </button>
+            @if (count !== 1) {
+                <button class="btn btn-md position-absolute top-0 end-0 me-3" (click)="onRemoveUser(i)">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            }
         </div>
     }
 
-    @if (usersForm.controls.length < 10) {
-        <div class="col-3">
+    @if (usersForm.controls.length < maxUsersNumber) {
+        <div class="col col-sm-6 col-md-5 col-lg-4">
             <div class="card justify-content-center d-flex h-100" style="border: dashed">
                 <button class="btn btn-lg" (click)="onAddUser()">
                     <i class="bi bi-plus-circle-dotted fs-1"></i>
