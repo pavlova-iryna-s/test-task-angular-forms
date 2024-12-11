@@ -66,8 +66,8 @@ export class InputValidationDirective implements OnInit {
             return;
         }
 
-        this.isInvalid = control.status === 'INVALID';
-        this.isValid = control.status === 'VALID';
+        this.isInvalid = control.touched && control.status === 'INVALID';
+        this.isValid = control.touched && control.status === 'VALID';
 
         this.syncErrorMessage();
         this.cdr.markForCheck();

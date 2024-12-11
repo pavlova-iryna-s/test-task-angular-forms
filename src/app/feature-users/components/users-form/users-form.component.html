@@ -3,6 +3,8 @@
 
 @if (showCancelButton()) {
     <button type="button" class="btn btn-danger" (click)="onCancel()">Cancel</button>
+
+    <span class="text-muted ms-3">{{ untilSubmitTime() | date: "mm:ss" }}</span>
 } @else {
     <button [disabled]="hasErrorsVar" type="button" class="btn btn-primary" (click)="onSubmit()">
         Submit all forms

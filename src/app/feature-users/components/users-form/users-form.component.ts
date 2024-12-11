@@ -1,15 +1,18 @@
-import { JsonPipe } from '@angular/common';
+import { DatePipe, JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import type { WritableSignal, Signal } from '@angular/core';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AsyncValidatorFn, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { FormArray, FormGroup } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
-import { combineLatest, map } from 'rxjs';
+import { combineLatest, filter, map, Subscription, switchMap, tap, timer } from 'rxjs';
 
 import { UserCardComponent } from '../user-card/user-card.component';
-import type { IUserForm } from '../../models/user.model';
+import type { IUser, IUserForm } from '../../models/user.model';
 import { UserService } from '../../services/user.service';
+import { createCountryValidator } from '../../validators/countries.validator';
+import { createBirthdayValidator } from '../../validators/birthday.validator';
+import { UserExistsValidator } from '../../validators/user-exists.validator';
 
 @UntilDestroy()
 @Component({
@@ -17,13 +20,14 @@ import { UserService } from '../../services/user.service';
     standalone: true,
     templateUrl: './users-form.component.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [JsonPipe, ReactiveFormsModule, UserCardComponent]
+    imports: [JsonPipe, ReactiveFormsModule, UserCardComponent, DatePipe]
 })
 export class UsersFormComponent implements OnInit {
     readonly usersForm: FormArray<FormGroup<IUserForm>> = this.fb.array<FormGroup<IUserForm>>([]);
     readonly maxUsersNumber: number = 10;
 
     showCancelButton: WritableSignal<boolean> = signal(false);
+    untilSubmitTime: WritableSignal<number | undefined> = signal(undefined);
 
     invalidForms: Signal<number> = toSignal(
         combineLatest([this.usersForm.statusChanges, this.usersForm.valueChanges]).pipe(
@@ -39,8 +43,14 @@ export class UsersFormComponent implements OnInit {
         }
     );
 
+    private timerSubscription?: Subscription;
+
+    private readonly CANCEL_INTERVAL_SEC = 5;
+    private readonly userValidator: AsyncValidatorFn = this.userExistsValidator.createValidator();
+
     constructor(
         private fb: NonNullableFormBuilder,
+        private userExistsValidator: UserExistsValidator,
         private userApiService: UserService
     ) {}
 
@@ -49,20 +59,23 @@ export class UsersFormComponent implements OnInit {
     }
 
     onAddUser(): void {
-        const userForm = this.fb.group<IUserForm>({
-            country: this.fb.control('', {
-                validators: [Validators.required],
+        const userForm = this.fb.group<IUserForm>(
+            {
+                country: this.fb.control('', {
+                    validators: [Validators.required, createCountryValidator()]
+                }),
+                username: this.fb.control('', {
+                    asyncValidators: [this.userValidator],
+                    validators: [Validators.required]
+                }),
+                birthday: this.fb.control('', {
+                    validators: [Validators.required, createBirthdayValidator()]
+                })
+            },
+            {
                 updateOn: 'change'
-            }),
-            username: this.fb.control('', {
-                validators: [Validators.required],
-                updateOn: 'change'
-            }),
-            birthday: this.fb.control('', {
-                validators: [Validators.required],
-                updateOn: 'change'
-            })
-        });
+            }
+        );
 
         this.usersForm.push(userForm);
     }
@@ -78,20 +91,58 @@ export class UsersFormComponent implements OnInit {
         }
 
         this.usersForm.disable();
-        this.toggleCancelButton();
+        this.showCancelButton.set(true);
 
-        const data = this.usersForm.getRawValue();
-
-        this.userApiService.addUsers(data).subscribe();
+        this.submit(this.usersForm.getRawValue());
     }
 
     onCancel(): void {
-        this.usersForm.enable();
-
-        this.toggleCancelButton();
+        this.enableForm();
     }
 
-    private toggleCancelButton() {
-        this.showCancelButton.set(!this.showCancelButton());
+    private submit(data: IUser[]): void {
+        this.timerSubscription = timer(this.CANCEL_INTERVAL_SEC, 1000)
+            .pipe(
+                tap((seconds) => {
+                    const msLeft = (this.CANCEL_INTERVAL_SEC - seconds) * 1000;
+
+                    this.untilSubmitTime.set(msLeft);
+                }),
+                filter((seconds) => seconds === this.CANCEL_INTERVAL_SEC),
+                switchMap(() => this.userApiService.addUsers(data)),
+                untilDestroyed(this)
+            )
+            .subscribe(() => {
+                /**
+                 * NOTE: Make sure that redundant API requests are not triggered for removed form groups.
+                 * Reset first, enable after
+                 */
+                this.resetForm();
+                this.enableForm();
+            });
+    }
+
+    private destroyTimer(): void {
+        if (!this.timerSubscription) {
+            return;
+        }
+
+        this.timerSubscription.unsubscribe();
+        this.timerSubscription = undefined;
+    }
+
+    private enableForm(): void {
+        this.destroyTimer();
+
+        this.untilSubmitTime.set(undefined);
+        this.showCancelButton.set(false);
+
+        this.usersForm.enable();
+    }
+
+    private resetForm(): void {
+        this.usersForm.clear();
+        this.onAddUser();
+        this.usersForm.reset();
     }
 }
